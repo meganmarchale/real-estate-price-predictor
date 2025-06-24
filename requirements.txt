@@ -28,3 +28,6 @@ tqdm==4.66.4
 pyyaml==6.0.1
 
 lightgbm==4.3.0
+
+# Save Excel files
+openpyxl==3.1.2
