@@ -15,6 +15,8 @@ scikit-learn==1.4.2
 joblib==1.4.2
 lightgbm==4.3.0
 xgboost==2.0.3
+catboost==1.2.3
+optuna==3.6.1
 
 # API
 fastapi==0.111.0
@@ -31,3 +33,4 @@ lightgbm==4.3.0
 
 # Save Excel files
 openpyxl==3.1.2
+
