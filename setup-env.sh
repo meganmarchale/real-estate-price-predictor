@@ -66,7 +66,7 @@ python -m pip install --upgrade pip
 # === Install dependencies ===
 print_blue "Installing dependencies from requirements.txt..."
 pip install -r requirements.txt
-#pip install -r requirements-dev.txt
+# pip install -r requirements-dev.txt
 npm install -g pyright
 pip install --upgrade flake8 flake8-docstrings pydocstyle
 
@@ -77,6 +77,11 @@ mkdir -p .vscode
 echo '{
   "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe"
 }' > .vscode/settings.json
+
+
+# GPU support with NVIDIA XGBoost
+pip uninstall -y xgboost
+pip install --upgrade --extra-index-url https://pypi.nvidia.com xgboost
 
 # === Done ===
 print_green "Setup complete. Your virtual environment is ready!"
