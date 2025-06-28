@@ -9,7 +9,7 @@ from utils.model_visualizer import ModelVisualizer
 import matplotlib.pyplot as plt
 import seaborn as sns
 import shap
-
+from IPython.display import display, HTML
 
 
 
@@ -38,7 +38,7 @@ class ModelEvaluator:
         - scikit-learn (sklearn.metrics)
     """
 
-    def __init__(self, model_name):
+    def __init__(self, model_name=None):
         self.model_name = model_name
         self.timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         self.records = []
@@ -127,59 +127,18 @@ class ModelEvaluator:
 
 
 
-    def display_model_summary(self, df: pd.DataFrame):
+
+
+
+    def display_all_model_summaries_from_df(self, df_all_evals: pd.DataFrame):
         """
-        Display and enhance the model evaluation summary from a provided DataFrame.
-
-        Args:
-            df (pd.DataFrame): DataFrame containing model evaluation metrics
+        Display evaluation summaries for all models in a given evaluation DataFrame.
         """
-        if df.empty:
-            print("⚠️ No model evaluation records found.")
-            return
-
-        best_idx = df["r2"].idxmax()
-        df["best"] = ""
-        df.loc[best_idx, "best"] = "✓"
-
-        def get_model_type(name):
-            if "Linear" in name:
-                return "Linear"
-            elif "Random Forest" in name:
-                return "Tree"
-            elif any(boost in name for boost in ["XGBoost", "LightGBM", "CatBoost"]):
-                return "Boosting"
-            elif "Stacked" in name:
-                return "Ensemble"
-            else:
-                return "Other"
-
-        df["type"] = df["model"].apply(get_model_type)
-        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
-        df["mae"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        df["rmse"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        df["r2"] = df["r2"].round(4)
-
-        def parse_euro(value):
-            return float(value.replace(" ", "").replace(" €", ""))
-
-        df["rmse/mae"] = df.apply(
-            lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2),
-            axis=1
-        )
-
-        def highlight_top_3(row):
-            if row["rank_r2"] == 1:
-                return ['background-color: lightgreen'] * len(row)
-            elif row["rank_r2"] == 2:
-                return ['background-color: #d0f0c0'] * len(row)
-            elif row["rank_r2"] == 3:
-                return ['background-color: #e6f5d0'] * len(row)
-            return [''] * len(row)
-
-        print("=== Model Evaluation Summary ===")
-        display(df.style.apply(highlight_top_3, axis=1))
-        print(f"\n👉 Best model based on R²: {df.loc[best_idx, 'model']} ✓")
+        for model_name in df_all_evals['model'].unique():
+            print(f"\n--- Evaluation Summary: {model_name} ---")
+            df_model = df_all_evals[df_all_evals['model'] == model_name].copy()
+            evaluator = ModelEvaluator(model_name)
+            evaluator.display_model_summary(df_model)
 
 
 
@@ -221,6 +180,15 @@ class ModelEvaluator:
         visualizer = ModelVisualizer(model, X_test, y_test, model_name=model_name)
         visualizer.plot_all_diagnostics()
         visualizer.plot_price_range_residuals()
+
+
+
+
+
+
+
+
+
 
 
     @staticmethod
@@ -315,3 +283,108 @@ class ModelEvaluator:
         plt.tight_layout()
         plt.show()
 
+
+
+    def enrich_model_summary(self, df: pd.DataFrame) -> pd.DataFrame:
+        df = df.copy()
+
+        # Marqueur de meilleur modèle
+        best_idx = df["r2"].idxmax()
+        df["best"] = ""
+        df.loc[best_idx, "best"] = "✓"
+
+        # Type de modèle
+        def get_model_type(name):
+            if "Linear" in name:
+                return "Linear"
+            elif "Random Forest" in name:
+                return "Tree"
+            elif any(boost in name for boost in ["XGBoost", "LightGBM", "CatBoost"]):
+                return "Boosting"
+            elif "Stacked" in name:
+                return "Ensemble"
+            else:
+                return "Other"
+
+        df["type"] = df["model"].apply(get_model_type)
+        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
+        df["r2"] = df["r2"].round(4)
+
+        # Format euros
+        df["mae"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
+        df["rmse"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
+
+        # Ratio rmse / mae
+        def parse_euro(value):
+            return float(value.replace(" ", "").replace(" €", ""))
+
+        df["rmse/mae"] = df.apply(
+            lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2),
+            axis=1
+        )
+
+        # Move 'best' column to the end
+        best_col = df.pop("best")
+        df["best"] = best_col
+
+        return df
+
+
+
+
+    def display_model_summary(self, df: pd.DataFrame):
+        if df.empty:
+            print("⚠️ No model evaluation records found.")
+            return
+
+        # Clean + enrich
+        df = df.drop_duplicates().copy()
+        best_idx = df["r2"].idxmax()
+        df["best"] = ""
+        df.loc[best_idx, "best"] = "✓"
+
+        def get_model_type(name):
+            if "Linear" in name:
+                return "Linear"
+            elif "Random Forest" in name:
+                return "Tree"
+            elif any(boost in name for boost in ["XGBoost", "LightGBM", "CatBoost"]):
+                return "Boosting"
+            elif "Stacked" in name:
+                return "Ensemble"
+            else:
+                return "Other"
+
+        df["type"] = df["model"].apply(get_model_type)
+        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
+
+        # Format € values and ratios
+        df["mae"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
+        df["rmse"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
+        df["r2"] = df["r2"].round(4)
+
+        def parse_euro(val):
+            return float(val.replace(" ", "").replace(" €", ""))
+
+        df["rmse/mae"] = df.apply(lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2), axis=1)
+
+        # Reorder: move 'best' to last column
+        cols = [col for col in df.columns if col != "best"] + ["best"]
+        df = df[cols]
+
+        # Highlight top 3 by rank_r2
+        def highlight_top_3(row):
+            if row["rank_r2"] == 1:
+                return ['background-color: lightgreen'] * len(row)
+            elif row["rank_r2"] == 2:
+                return ['background-color: #d0f0c0'] * len(row)
+            elif row["rank_r2"] == 3:
+                return ['background-color: #e6f5d0'] * len(row)
+            return [''] * len(row)
+
+        print("=== Model Evaluation Summary ===")
+        styled = df.style.apply(highlight_top_3, axis=1)
+        display(HTML(styled.to_html()))
+
+        best_model_name = df.loc[best_idx, "model"]
+        print(f"\n👉 Best model based on R²: {best_model_name} ✓")

@@ -1,12 +1,16 @@
 
-import glob
+
 import sys, os
+project_root = os.path.abspath("../..")
+sys.path.append(project_root)
 import sqlite3
 import json
 from datetime import datetime
 import pandas as pd
+import glob
 
 from utils.constants import METRICS_DB_PATH, CLEANED_DIR
+
 
 
 
@@ -22,6 +26,47 @@ class ExperimentTracker:
         self.db_path = db_path
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
         self._init_db()
+
+    def get_all_experiment_df(self, pattern: str = "immoweb_real_estate_cleaned_for_ml_*.csv") -> pd.DataFrame:
+        """
+        Return all model evaluations (as DataFrame) for the latest cleaned dataset version.
+
+        Args:
+            pattern (str): Pattern to identify cleaned dataset files.
+
+        Returns:
+            pd.DataFrame: DataFrame containing all model evaluations.
+        """
+        latest_cleaned_file = self.get_latest_cleaned_file(CLEANED_DIR, pattern)
+        dataset_name = os.path.basename(latest_cleaned_file)
+        cleaning_version_id = int(self.get_latest_cleaning_version_id(CLEANED_DIR, pattern))
+        
+        return self.get_model_evaluations(dataset_name, cleaning_version_id)
+
+
+
+
+    def get_model_evaluations(self, dataset_name: str, cleaning_version_id: int) -> pd.DataFrame:
+        """
+        Fetch logged model evaluation metrics from SQLite for a specific dataset and cleaning version.
+
+        Args:
+            dataset_name (str): Name of the dataset (e.g. 'immoweb_real_estate_ml_ready.csv')
+            cleaning_version_id (int): Cleaning version identifier
+
+        Returns:
+            pd.DataFrame: DataFrame of model evaluations
+        """
+        conn = sqlite3.connect(self.db_path)
+        query = """
+            SELECT * FROM model_evaluations
+            WHERE dataset = ? AND cleaning_version_id = ?
+        """
+        df = pd.read_sql_query(query, conn, params=(dataset_name, cleaning_version_id))
+        conn.close()
+        return df.drop_duplicates()
+
+
 
     def _init_db(self):
         """
@@ -153,25 +198,7 @@ class ExperimentTracker:
         else:
             raise ValueError(f"Filename does not contain a valid cleaning version ID: {filename}")
 
-    def get_model_evaluations(self, dataset_name: str, cleaning_version_id: int) -> pd.DataFrame:
-        """
-        Fetch logged model evaluation metrics from SQLite for a specific dataset and cleaning version.
 
-        Args:
-            dataset_name (str): Name of the dataset (e.g. 'immoweb_real_estate_ml_ready.csv')
-            cleaning_version_id (int): Cleaning version identifier
-
-        Returns:
-            pd.DataFrame: DataFrame of model evaluations
-        """
-        conn = sqlite3.connect(self.db_path)
-        query = """
-            SELECT * FROM model_evaluations
-            WHERE dataset = ? AND cleaning_version_id = ?
-        """
-        df = pd.read_sql_query(query, conn, params=(dataset_name, cleaning_version_id))
-        conn.close()
-        return df.drop_duplicates()
     
 
 
@@ -213,3 +240,32 @@ class ExperimentTracker:
 
         # Return the corresponding metrics DataFrame
         return self.get_model_evaluations(dataset_name, cleaning_version_id)
+
+    def display_all_model_summaries(self):
+        """
+        Display evaluation summaries for all models evaluated on the latest cleaned dataset version.
+        """
+
+
+        # Identifier le dernier fichier nettoyé et son ID de version
+        latest_cleaned_file = self.get_latest_cleaned_file(CLEANED_DIR)
+        dataset_name = os.path.basename(latest_cleaned_file)
+        cleaning_version_id = int(self.get_latest_cleaning_version_id(CLEANED_DIR))
+
+        # Récupérer toutes les évaluations enregistrées pour cette version
+        df_all_evals = self.get_model_evaluations(dataset_name, cleaning_version_id)
+
+        if df_all_evals.empty:
+            print("⚠️ No model evaluations found for the latest cleaning version.")
+            return
+        
+        # Afficher un résumé pour chaque modèle
+        for model_name in df_all_evals['model'].unique():
+            print(f"\n--- Evaluation Summary: {model_name} ---")
+            df_model = df_all_evals[df_all_evals['model'] == model_name].copy()
+            
+            
+            
+
+            evaluator = ModelEvaluator(model_name)
+            evaluator.display_model_summary(df_model)

@@ -73,4 +73,7 @@ docs-pdoc/
 data/ml_ready/
 data/ML_old/
 
+# === Catboost info ===
+notebooks/pipelines/cateboost_info/
+
 
