@@ -42,3 +42,6 @@ pip-tools==7.4.1
 ipykernel>=6.29
 notebook==7.2.0
 # jupyterlab==4.1.8  # Optional: comment out to avoid dependency conflicts
+
+papermill==2.4.0
+azureml-core==1.55.0

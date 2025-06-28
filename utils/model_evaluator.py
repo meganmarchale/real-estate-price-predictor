@@ -8,6 +8,8 @@ from utils.experiment_tracker import ExperimentTracker
 from utils.model_visualizer import ModelVisualizer
 import matplotlib.pyplot as plt
 import seaborn as sns
+import shap
+
 
 
 
@@ -247,45 +249,69 @@ class ModelEvaluator:
         plt.show()
 
 
+
+
     @staticmethod
     def plot_price_range_residuals_side_by_side(y_true, y_pred_1, y_pred_2, model_names=("Model 1", "Model 2")):
         """
-        Display side-by-side boxplots of residuals by price range for two models.
+        Plots side-by-side boxplots of residuals across price ranges for two models.
         """
 
 
-        # Compute residuals
         residuals_1 = y_true - y_pred_1
         residuals_2 = y_true - y_pred_2
 
-        # Create DataFrames for both models
-        df_1 = pd.DataFrame({
-            "Price": y_true,
+        df1 = pd.DataFrame({
+            "Price Range": pd.cut(y_true, bins=[0, 250_000, 500_000, 750_000, 1_000_000, float("inf")],
+                                labels=["<250k", "250k–500k", "500k–750k", "750k–1M", ">1M"]),
             "Residuals": residuals_1,
             "Model": model_names[0]
         })
-        df_2 = pd.DataFrame({
-            "Price": y_true,
+
+        df2 = pd.DataFrame({
+            "Price Range": pd.cut(y_true, bins=[0, 250_000, 500_000, 750_000, 1_000_000, float("inf")],
+                                labels=["<250k", "250k–500k", "500k–750k", "750k–1M", ">1M"]),
             "Residuals": residuals_2,
             "Model": model_names[1]
         })
 
-        # Combine both DataFrames
-        df = pd.concat([df_1, df_2], axis=0)
+        df = pd.concat([df1, df2])
 
-        # Bin prices into ranges
-        bins = [0, 250_000, 500_000, 750_000, 1_000_000, float("inf")]
-        labels = ["<250k", "250k–500k", "500k–750k", "750k–1M", ">1M"]
-        df["Price Range"] = pd.cut(df["Price"], bins=bins, labels=labels)
-
-        # Plot boxplot by price range and model
-        plt.figure(figsize=(14, 6))
+        plt.figure(figsize=(12, 6))
         sns.boxplot(data=df, x="Price Range", y="Residuals", hue="Model", palette="Set2")
         plt.axhline(0, linestyle="--", color="red")
-        plt.title("Residuals by Price Range – Model Comparison")
+        plt.title("Residuals by Price Range (Model Comparison)")
         plt.xlabel("Price Range (€)")
         plt.ylabel("Residual (€)")
         plt.grid(True)
+        plt.tight_layout()
+        plt.show()
+
+
+    @staticmethod
+    def plot_shap_comparison_beeswarm(model_all, x_all, model_top, x_top):
+        """
+        Display side-by-side SHAP beeswarm summary plots for two models.
+        """
+        # Create SHAP explainers
+        explainer_all = shap.Explainer(model_all, x_all)
+        explainer_top = shap.Explainer(model_top, x_top)
+
+        # Compute SHAP values
+        shap_values_all = explainer_all(x_all)
+        shap_values_top = explainer_top(x_top)
+
+        # Plot side-by-side beeswarm summary
+        plt.figure(figsize=(18, 7))
+
+        plt.subplot(1, 2, 1)
+        shap.plots.beeswarm(shap_values_all, max_display=15, show=False)
+        plt.title("SHAP Summary – All Features", fontsize=13)
+
+        plt.subplot(1, 2, 2)
+        shap.plots.beeswarm(shap_values_top, max_display=15, show=False)
+        plt.title("SHAP Summary – Top RF Features", fontsize=13)
+
         plt.tight_layout()
         plt.show()
 

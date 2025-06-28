@@ -1,0 +1,19 @@
+name: real-estate-env
+channels:
+  - conda-forge
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - papermill
+      - notebook
+      - pandas
+      - scikit-learn
+      - matplotlib
+      - seaborn
+      - xgboost
+      - catboost
+      - optuna
+      - jupyter
+      - shap
+      - joblib

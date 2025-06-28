@@ -46,3 +46,5 @@ METRICS_DB_PATH = os.path.join(DB_DIR, "metrics.db")
 
 # === Dev mode ===
 TEST_MODE = True
+
+RUN_ON_AZURE = True  # Set to True if running on Azure ML
