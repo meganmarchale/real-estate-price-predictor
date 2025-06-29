@@ -1,25 +1,36 @@
 import sys
 from pathlib import Path
 
-def setup_project_root(marker_file=".git"):
-    """
-    Trouve automatiquement le dossier racine du projet
-    et l’ajoute au sys.path pour les imports.
-    Compatible avec les notebooks et les scripts Python.
-    """
+# === [1. Robust project root detection for scripts + nbclient + notebooks] ===
+import os
+import sys
+from pathlib import Path
+
+def get_project_root(marker=".git", fallback_name="real-estate-price-predictor"):
     try:
-        current = Path(__file__).resolve()  # scripts normaux
+        # Works in script or notebook (Jupyter, nbclient)
+        base_path = Path(__file__).resolve()
     except NameError:
-        current = Path.cwd()  # notebooks
+        # __file__ not defined (inside Jupyter or nbclient): fallback to notebook path
+        try:
+            # Works with nbclient: __vsc_ipynb_file__ may be set by VSCode
+            from IPython import get_ipython
+            base_path = Path(get_ipython().run_line_magic('pwd', '')).resolve()
+        except:
+            base_path = Path.cwd().resolve()
 
-    for parent in current.parents:
-        if (parent / marker_file).exists():
-            project_root = parent
-            break
-    else:
-        project_root = current.parents[1]  # fallback
+    for parent in [base_path] + list(base_path.parents):
+        if (parent / marker).exists():
+            return parent.resolve()
 
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
+    for parent in base_path.parents:
+        if fallback_name.lower() in parent.name.lower():
+            return parent.resolve()
 
-    return project_root
+    raise RuntimeError(f"❌ Could not find project root using marker '{marker}' or fallback '{fallback_name}'")
+
+project_root = get_project_root()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
+print(f"📁 Using detected project root: {project_root}")
