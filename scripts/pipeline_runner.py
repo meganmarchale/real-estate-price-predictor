@@ -7,6 +7,9 @@ from nbclient.exceptions import CellExecutionError
 from typing import List
 from pathlib import Path
 
+
+sys.stdout.reconfigure(encoding='utf-8')
+
 # Fix asyncio issue under Windows
 if sys.platform.startswith("win"):
     import asyncio
