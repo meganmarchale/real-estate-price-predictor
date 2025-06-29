@@ -3,28 +3,27 @@ import sys
 import time
 import nbformat
 from nbclient import NotebookClient
-from typing import List
+from nbclient.exceptions import CellExecutionError
 from rich.console import Console
+from typing import List
 
-# Patch for Windows + asyncio compatibility
+# Fix asyncio issue under Windows
 if sys.platform.startswith("win"):
     import asyncio
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Add project root to sys.path
+# Add the project root to the Python path
 project_root = os.path.abspath("../..")
 sys.path.append(project_root)
 
-console = Console(force_terminal=True, color_system="truecolor")
+console = Console(force_terminal=True)
 
 class NotebookPipelineRunner:
     def __init__(self, notebook_paths: List[str]) -> None:
-        self.notebook_paths = [
-            p for p in notebook_paths if "_executed" not in p
-        ]
+        self.notebook_paths = [p for p in notebook_paths if "_executed" not in p]
 
     def run_pipeline(self) -> None:
-        console.print("\n[bold blue]Running pipeline notebooks with nbclient...\n[/bold blue]")
+        console.print("\n[bold blue]📘 Running pipeline notebooks with nbclient...\n[/bold blue]")
 
         with open("pipeline_run.log", "a", encoding="utf-8") as logf:
             logf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Pipeline started\n")
@@ -32,42 +31,47 @@ class NotebookPipelineRunner:
         for notebook_path in self.notebook_paths:
             self.run_notebook(notebook_path)
 
-        console.print("\n[bold green]👏 All notebooks executed successfully.[/bold green]")
+        console.print("\n[bold green]✅ All notebooks executed successfully.[/bold green]")
 
     def run_notebook(self, notebook_path: str) -> None:
-        console.print(f"\n➡️  [bold yellow]Running:[/bold yellow] {notebook_path}")
-        start = time.time()
+        console.print(f"\n[bold yellow]➡️  Running: {notebook_path}[/bold yellow]")
+        start_time = time.time()
 
         try:
             with open(notebook_path, encoding="utf-8") as f:
                 nb = nbformat.read(f, as_version=4)
 
-            client = NotebookClient(nb, timeout=1200, kernel_name='python3')
+            client = NotebookClient(nb, timeout=1200, kernel_name="python3")
             client.execute()
 
             output_path = notebook_path.replace(".ipynb", "_executed.ipynb")
-            with open(output_path, 'w', encoding='utf-8') as f:
+            with open(output_path, "w", encoding="utf-8") as f:
                 nbformat.write(nb, f)
 
-            # === Display cell outputs ===
+            # Print each cell's output
             for i, cell in enumerate(nb.cells):
-                if cell.cell_type == 'code':
-                    outputs = cell.get("outputs", [])
-                    for out in outputs:
-                        if out.output_type == "stream" and out.name == "stdout":
-                            console.print(f"[dim]--- Cell {i} ---[/dim]")
-                            console.print(out.text.rstrip())
+                if cell.cell_type == "code":
+                    console.print(f"[bold cyan]--- Cell {i} ---[/bold cyan]")
+                    if "outputs" in cell:
+                        for output in cell.outputs:
+                            if output.output_type == "stream":
+                                console.print(output.text)
+                            elif output.output_type == "execute_result":
+                                console.print(output["data"].get("text/plain", ""))
+                            elif output.output_type == "error":
+                                console.print(f"[red]{output.ename}: {output.evalue}[/red]")
 
-            duration = time.time() - start
-            console.print(f"🟢 [bold green]Finished:[/bold green] {notebook_path} in {duration:.2f} seconds")
+            elapsed = time.time() - start_time
+            console.print(f"[bold green]🟢 Finished: {notebook_path} in {elapsed:.2f} seconds[/bold green]")
 
-        except Exception as e:
-            console.print(f"[bold red]🔴 Failed:[/bold red] {notebook_path} with error:\n{e}")
+        except CellExecutionError as e:
+            console.print(f"[bold red]🔴 Error in notebook {notebook_path}[/bold red]")
+            console.print(str(e))
             raise
 
 if __name__ == "__main__":
     if "_executed" in os.getcwd():
-        print("🔴 Execution aborted: running from an '_executed' directory.")
+        console.print("[red]🔴 Execution aborted: running from an '_executed' directory.[/red]")
         sys.exit(1)
 
     pipeline = [

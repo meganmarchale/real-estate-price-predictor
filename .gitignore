@@ -79,3 +79,19 @@ notebooks/pipelines/cateboost_info/
 # Ignore executed notebooks
 *_executed.ipynb
 
+# Ignore model files
+*.pkl
+*.joblib
+
+# Ignore CatBoost model folders (if any)
+**/catboost_info/
+**/catboost_model/
+catboost_info/
+
+# Ignore all models directory
+models/
+saved_models/
+
+# Ignore experiment logs
+logs/
+*.log
