@@ -70,8 +70,7 @@ if __name__ == "__main__":
         "notebooks/pipeline/050_tune_xgboost.ipynb",
         "notebooks/pipeline/060_tune_catboost.ipynb",
         "notebooks/pipeline/070_evaluation.ipynb",
-        "notebooks/pipeline/080_export_model.ipynb",
-        "notebooks/pipeline/090_inference.ipynb"
+        "notebooks/pipeline/080_inference.ipynb"
     ]
 
     runner = NotebookPipelineRunner(notebook_paths=pipeline)
