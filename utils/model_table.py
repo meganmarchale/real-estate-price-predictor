@@ -71,66 +71,7 @@ class ModelComparativeTable:
 
 
 
-    def display_model_summary(self):
 
-        df = self.df_all_evals.copy()
-
-
-        if df.empty:
-            print("⚠️ No model evaluation records found.")
-            return
-
-        # Clean + enrich
-        df = df.drop_duplicates().copy()
-        best_idx = df["r2"].idxmax()
-        df["best"] = ""
-        df.loc[best_idx, "best"] = "✓"
-
-        def get_model_type(name):
-            if "Linear" in name:
-                return "Linear"
-            elif "Random Forest" in name:
-                return "Tree"
-            elif any(boost in name for boost in ["XGBoost", "LightGBM", "CatBoost"]):
-                return "Boosting"
-            elif "Stacked" in name:
-                return "Ensemble"
-            else:
-                return "Other"
-
-        df["type"] = df["model"].apply(get_model_type)
-        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
-
-        # Format € values and ratios
-        df["mae"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        df["rmse"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        df["r2"] = df["r2"].round(4)
-
-        def parse_euro(val):
-            return float(val.replace(" ", "").replace(" €", ""))
-
-        df["rmse/mae"] = df.apply(lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2), axis=1)
-
-        # Reorder: move 'best' to last column
-        # cols = [col for col in df.columns if col != "best"] + ["best"]
-        # df = df[cols]
-
-        # Highlight top 3 by rank_r2
-        def highlight_top_3(row):
-            if row["rank_r2"] == 1:
-                return ['background-color: lightgreen'] * len(row)
-            elif row["rank_r2"] == 2:
-                return ['background-color: #d0f0c0'] * len(row)
-            elif row["rank_r2"] == 3:
-                return ['background-color: #e6f5d0'] * len(row)
-            return [''] * len(row)
-
-        print("=== Model Evaluation Summary ===")
-        styled = df.style.apply(highlight_top_3, axis=1)
-        display(HTML(styled.to_html()))
-
-        best_model_name = df.loc[best_idx, "model"]
-        print(f"\n👉 Best model based on R²: {best_model_name} ✓")
 
 
 
@@ -199,7 +140,68 @@ class ModelComparativeTable:
 
 
       
+    def display_model_summary(self):
+        df = self.df_all_evals.copy()
 
+        if df.empty:
+            print("⚠️ No model evaluation records found.")
+            return
 
+        df = df.drop_duplicates().copy()
 
-      
+        # Ensure float types before any calculation
+        for col in ["mae", "rmse", "r2"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+        best_idx = df["r2"].idxmax()
+        df["best"] = ""
+        df.loc[best_idx, "best"] = "✓"
+
+        def get_model_type(name):
+            if "Linear" in name:
+                return "Linear"
+            elif "Random Forest" in name:
+                return "Tree"
+            elif any(boost in name for boost in ["XGBoost", "LightGBM", "CatBoost"]):
+                return "Boosting"
+            elif "Stacked" in name:
+                return "Ensemble"
+            else:
+                return "Other"
+
+        df["type"] = df["model"].apply(get_model_type)
+        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
+        df["r2"] = df["r2"].round(4)
+
+        # Compute ratio
+        df["rmse/mae"] = df.apply(
+            lambda row: round(row["rmse"] / row["mae"], 2)
+            if pd.notnull(row["rmse"]) and pd.notnull(row["mae"]) and row["mae"] != 0 else None,
+            axis=1
+        )
+
+        # Create formatted columns for display only
+        df["mae_display"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
+        df["rmse_display"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
+
+        # Replace values only for display
+        df["mae"] = df["mae_display"]
+        df["rmse"] = df["rmse_display"]
+        df.drop(columns=["mae_display", "rmse_display"], inplace=True)
+
+        def highlight_top_3(row):
+            if row["rank_r2"] == 1:
+                return ['background-color: lightgreen'] * len(row)
+            elif row["rank_r2"] == 2:
+                return ['background-color: #d0f0c0'] * len(row)
+            elif row["rank_r2"] == 3:
+                return ['background-color: #e6f5d0'] * len(row)
+            return [''] * len(row)
+
+        print("=== Model Evaluation Summary ===")
+        styled = df.style.apply(highlight_top_3, axis=1)
+        display(HTML(styled.to_html()))
+
+        best_model_name = df.loc[best_idx, "model"]
+        print(f"\n👉 Best model based on R²: {best_model_name} ✓")
+    

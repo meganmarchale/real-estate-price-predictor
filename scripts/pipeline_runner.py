@@ -23,7 +23,7 @@ class NotebookPipelineRunner:
         self.notebook_paths = [p for p in notebook_paths if "_executed" not in p]
 
     def run_pipeline(self) -> None:
-        console.print("\n[bold blue]📘 Running pipeline notebooks with nbclient...\n[/bold blue]")
+        console.print("\n[bold blue]Running pipeline notebooks with nbclient...\n[/bold blue]")
 
         with open("pipeline_run.log", "a", encoding="utf-8") as logf:
             logf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Pipeline started\n")
@@ -31,7 +31,7 @@ class NotebookPipelineRunner:
         for notebook_path in self.notebook_paths:
             self.run_notebook(notebook_path)
 
-        console.print("\n[bold green]✅ All notebooks executed successfully.[/bold green]")
+        console.print("\n[bold green]👏 All notebooks executed successfully.[/bold green]")
 
     def run_notebook(self, notebook_path: str) -> None:
         console.print(f"\n[bold yellow]➡️  Running: {notebook_path}[/bold yellow]")
