@@ -14,6 +14,7 @@ RESULTS_DIR = os.path.join(BASE_DIR, "results")
 MODELS_DIR = os.path.join(BASE_DIR, "models")
 LOGS_DIR = os.path.join(BASE_DIR, "logs")
 DB_DIR = os.path.join(BASE_DIR, "database")  
+PREDICTIONS_DIR = os.path.join(BASE_DIR, "predictions")
 
 
 # === Data files ===
