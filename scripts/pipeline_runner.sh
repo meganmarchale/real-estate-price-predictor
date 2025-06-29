@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Make this file executable: chmod +x pipeline_runner.sh
-# Run it with: ./pipeline_runner.shchmod +x scripts/pipeline_runner.sh && ./scripts/pipeline_runner.sh
-# From root directory: 
+# Run it with: ./scripts/pipeline_runner.sh && ./scripts/pipeline_runner.sh
+# From root directory:
 
 clear
 
