@@ -8,11 +8,21 @@ from utils.constants import TEST_MODE
 from utils.experiment_tracker import ExperimentTracker
 from IPython.display import display, HTML
 
-class ModelComparativelTable:
+class ModelComparativeTable:
+
 
     def __init__(self):
+        # Load all experiment evaluations from tracker
         self.df_all_evals = ExperimentTracker().get_all_experiment_df()
-        self.enrich_model_summary(self.df_all_evals)
+
+        # Check if DataFrame is valid before enrichment
+        if self.df_all_evals.empty or "r2" not in self.df_all_evals.columns:
+            print("⚠️ No model evaluations found in experiment tracker.")
+            self.df_all_evals = pd.DataFrame()  # avoid cascading errors
+        else:
+            # Safe enrichment if DataFrame is non-empty and contains 'r2'
+            self.df_all_evals = self.enrich_model_summary(self.df_all_evals)
+
 
     def enrich_model_summary(self, df: pd.DataFrame) -> pd.DataFrame:
         df = df.copy()
