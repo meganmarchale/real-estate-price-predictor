@@ -12,7 +12,7 @@ if sys.platform.startswith("win"):
     import asyncio
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# === [0. Robust project root detection] ===
+# Detect project root
 def get_project_root(marker=".git", fallback_name="real-estate-price-predictor"):
     current = os.path.abspath(__file__)
     current_dir = os.path.dirname(current)
@@ -22,7 +22,7 @@ def get_project_root(marker=".git", fallback_name="real-estate-price-predictor")
             return str(parent.resolve())
         if fallback_name.lower() in parent.name.lower():
             return str(parent.resolve())
-    raise RuntimeError(f"Could not detect project root using marker '{marker}' or fallback '{fallback_name}'")
+    raise RuntimeError("Could not detect project root")
 
 project_root = get_project_root()
 sys.path.insert(0, project_root)
@@ -41,15 +41,15 @@ class NotebookPipelineRunner:
             with open(log_path, "a", encoding="utf-8", errors="replace") as logf:
                 logf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Pipeline started\n")
         except Exception as e:
-            print(f"[WARNING] Failed to write to log file: {e}")
+            print("[WARNING] Failed to write to log file:", e)
 
         for notebook_path in self.notebook_paths:
             self.run_notebook(notebook_path)
 
-        print("\n=== All notebooks executed successfully ===")
+        print("\n=== Pipeline completed ===")
 
     def run_notebook(self, notebook_path: str) -> None:
-        print(f"\n--> Running notebook: {notebook_path}")
+        print("\nRunning notebook:", notebook_path)
 
         start_time = time.time()
 
@@ -67,20 +67,20 @@ class NotebookPipelineRunner:
 
             for i, cell in enumerate(nb.cells):
                 if cell.cell_type == "code":
-                    print(f"\n--- Cell {i} ---")
+                    print("\n--- Cell", i, "---")
                     for output in cell.get("outputs", []):
                         if output.output_type == "stream":
                             print(output.text)
                         elif output.output_type == "execute_result":
                             print(output["data"].get("text/plain", ""))
                         elif output.output_type == "error":
-                            print(f"[ERROR] {output.ename}: {output.evalue}")
+                            print("[ERROR]", output.ename + ":", output.evalue)
 
             elapsed = time.time() - start_time
-            print(f"[OK] Finished: {notebook_path} in {elapsed:.2f} seconds")
+            print("Notebook finished:", notebook_path, f"({elapsed:.2f} seconds)")
 
         except CellExecutionError as e:
-            print(f"[ERROR] Execution failed in notebook: {notebook_path}")
+            print("[ERROR] Execution failed in notebook:", notebook_path)
             print(str(e))
             raise
 
