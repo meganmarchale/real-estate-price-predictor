@@ -3,65 +3,73 @@ import sys
 import time
 import nbformat
 from nbclient import NotebookClient
-from rich.console import Console
 from typing import List
+from rich.console import Console
 
-# Patch for Windows + ZMQ compatibility
+# Patch for Windows + asyncio compatibility
 if sys.platform.startswith("win"):
     import asyncio
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Add the project root to the Python path
+# Add project root to sys.path
 project_root = os.path.abspath("../..")
 sys.path.append(project_root)
 
-console = Console()
+console = Console(force_terminal=True, color_system="truecolor")
 
 class NotebookPipelineRunner:
     def __init__(self, notebook_paths: List[str]) -> None:
-        self.notebook_paths = notebook_paths
+        self.notebook_paths = [
+            p for p in notebook_paths if "_executed" not in p
+        ]
 
     def run_pipeline(self) -> None:
-        console.print("\n[bold blue]>>> Running pipeline notebooks with nbclient...\n[/bold blue]")
+        console.print("\n[bold blue]Running pipeline notebooks with nbclient...\n[/bold blue]")
+
+        with open("pipeline_run.log", "a", encoding="utf-8") as logf:
+            logf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Pipeline started\n")
+
         for notebook_path in self.notebook_paths:
             self.run_notebook(notebook_path)
-        console.print("[bold green]All notebooks executed successfully.[/bold green]")
+
+        console.print("\n[bold green]👏 All notebooks executed successfully.[/bold green]")
 
     def run_notebook(self, notebook_path: str) -> None:
-        console.print(f"[bold yellow][RUNNING][/bold yellow] {notebook_path}")
+        console.print(f"\n➡️  [bold yellow]Running:[/bold yellow] {notebook_path}")
         start = time.time()
 
-        with open(notebook_path, encoding="utf-8") as f:
-            nb = nbformat.read(f, as_version=4)
-
-        client = NotebookClient(nb, timeout=1200, kernel_name='python3')
         try:
+            with open(notebook_path, encoding="utf-8") as f:
+                nb = nbformat.read(f, as_version=4)
+
+            client = NotebookClient(nb, timeout=1200, kernel_name='python3')
             client.execute()
 
-            # Display outputs of each code cell
-            for i, cell in enumerate(nb.cells):
-                if cell.cell_type == 'code':
-                    for output in cell.get("outputs", []):
-                        if output.output_type == "stream":
-                            console.print(output.text.strip())
-                        elif output.output_type == "execute_result":
-                            console.print(output["data"].get("text/plain", "").strip())
-                        elif output.output_type == "error":
-                            console.print(f"[red]{''.join(output.get('traceback', []))}[/red]")
-
-            # Save the executed notebook
             output_path = notebook_path.replace(".ipynb", "_executed.ipynb")
             with open(output_path, 'w', encoding='utf-8') as f:
                 nbformat.write(nb, f)
 
+            # === Display cell outputs ===
+            for i, cell in enumerate(nb.cells):
+                if cell.cell_type == 'code':
+                    outputs = cell.get("outputs", [])
+                    for out in outputs:
+                        if out.output_type == "stream" and out.name == "stdout":
+                            console.print(f"[dim]--- Cell {i} ---[/dim]")
+                            console.print(out.text.rstrip())
+
             duration = time.time() - start
-            console.print(f"[bold green]\n[SUCCESS][/bold green] Finished: {notebook_path} in {duration:.2f} seconds\n")
+            console.print(f"🟢 [bold green]Finished:[/bold green] {notebook_path} in {duration:.2f} seconds")
 
         except Exception as e:
-            console.print(f"[bold red][ERROR][/bold red] Failed: {notebook_path} with error:\n{e}")
+            console.print(f"[bold red]🔴 Failed:[/bold red] {notebook_path} with error:\n{e}")
             raise
 
 if __name__ == "__main__":
+    if "_executed" in os.getcwd():
+        print("🔴 Execution aborted: running from an '_executed' directory.")
+        sys.exit(1)
+
     pipeline = [
         "notebooks/pipeline/010_data_load_clean.ipynb",
         "notebooks/pipeline/020_visualization_clean_for_ml.ipynb",

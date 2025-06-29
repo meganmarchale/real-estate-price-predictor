@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Make this file executable: chmod +x pipeline_runner.sh
-# Run it with: ./scripts/pipeline_runner.sh && ./scripts/pipeline_runner.sh
-# From root directory:
+# Make this file executable: chmod +x ./scripts/pipeline_runner.sh
+# Run it from project root: ./scripts/pipeline_runner.sh
 
 clear
 
@@ -33,13 +32,19 @@ print_error() {
     exit 1
 }
 
+# === Prepare logging ===
+timestamp=$(date +"%Y%m%d_%H%M%S")
+log_dir="logs"
+log_file="$log_dir/pipeline_$timestamp.log"
+mkdir -p "$log_dir"
+
 # === Activate virtual environment ===
 print_blue "Activating virtual environment..."
 source .venv/Scripts/activate || print_error "Failed to activate virtual environment. Is it created?"
 
 # === Run the pipeline runner script ===
-print_blue "Running pipeline (executing notebooks via Papermill)..."
-PYTHONPATH=. python scripts/pipeline_runner.py || print_error "Pipeline execution failed."
+print_blue "Running pipeline notebooks with nbclient..."
+PYTHONPATH=. python scripts/pipeline_runner.py | tee "$log_file"
 
 # === Done ===
-print_green "Pipeline execution completed successfully."
+print_green "Pipeline execution completed successfully. Log saved to $log_file"

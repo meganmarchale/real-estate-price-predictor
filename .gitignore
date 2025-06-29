@@ -76,6 +76,6 @@ data/ml_pre_study/
 # === Catboost info ===
 notebooks/pipelines/cateboost_info/
 
-
-
+# Ignore executed notebooks
+*_executed.ipynb
 
