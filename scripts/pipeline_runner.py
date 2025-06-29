@@ -1,25 +1,28 @@
 import os
 import sys
 import time
-import nbformat
-from nbclient import NotebookClient
-from nbclient.exceptions import CellExecutionError
+import papermill as pm
+import papermill
 from typing import List
 from pathlib import Path
 
+# Version check
+REQUIRED_PAPERMILL_VERSION = "2.4.0"
+if papermill.__version__ != REQUIRED_PAPERMILL_VERSION:
+    raise RuntimeError(
+        f"Papermill version {REQUIRED_PAPERMILL_VERSION} required, found {papermill.__version__}"
+    )
 
-sys.stdout.reconfigure(encoding='utf-8')
+print(f"Using papermill version: {papermill.__version__}")
 
-# Fix asyncio issue under Windows
+# Compatibility fix for Windows Python 3.12+
 if sys.platform.startswith("win"):
     import asyncio
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-# Detect project root
 def get_project_root(marker=".git", fallback_name="real-estate-price-predictor"):
     current = os.path.abspath(__file__)
     current_dir = os.path.dirname(current)
-
     for parent in Path(current_dir).resolve().parents:
         if (parent / marker).exists():
             return str(parent.resolve())
@@ -30,68 +33,49 @@ def get_project_root(marker=".git", fallback_name="real-estate-price-predictor")
 project_root = get_project_root()
 sys.path.insert(0, project_root)
 
-class NotebookPipelineRunner:
+class PapermillPipelineRunner:
     def __init__(self, notebook_paths: List[str]) -> None:
         self.notebook_paths = [p for p in notebook_paths if "_executed" not in p]
 
     def run_pipeline(self) -> None:
-        print("\n=== Running pipeline notebooks ===\n")
+        print("\n=== Running pipeline with Papermill ===\n")
 
-        log_path = os.path.join(project_root, "logs", f"pipeline_{time.strftime('%Y%m%d_%H%M%S')}.log")
-        os.makedirs(os.path.dirname(log_path), exist_ok=True)
+        log_dir = os.path.join(project_root, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        log_path = os.path.join(log_dir, f"pipeline_{time.strftime('%Y%m%d_%H%M%S')}.log")
 
-        try:
-            with open(log_path, "a", encoding="utf-8", errors="replace") as logf:
-                logf.write(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Pipeline started\n")
-        except Exception as e:
-            print("[WARNING] Failed to write to log file:", e)
+        with open(log_path, "a", encoding="utf-8", errors="replace") as logf:
+            logf.write(f"Pipeline started at {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-        for notebook_path in self.notebook_paths:
-            self.run_notebook(notebook_path)
+            for notebook_path in self.notebook_paths:
+                try:
+                    self.run_notebook(notebook_path, logf)
+                except Exception as e:
+                    logf.write(f"\n[ERROR] Failed: {notebook_path}\n{str(e)}\n")
+                    print(f"[ERROR] Failed: {notebook_path}")
+                    break
 
         print("\n=== Pipeline completed ===")
 
-    def run_notebook(self, notebook_path: str) -> None:
-        print("\nRunning notebook:", notebook_path)
-
+    def run_notebook(self, notebook_path: str, logf) -> None:
+        print(f"\nRunning notebook: {notebook_path}")
         start_time = time.time()
 
-        try:
-            abs_path = os.path.join(project_root, notebook_path)
-            with open(abs_path, encoding="utf-8") as f:
-                nb = nbformat.read(f, as_version=4)
+        input_path = os.path.join(project_root, notebook_path)
+        output_path = input_path.replace(".ipynb", "_executed.ipynb")
 
-            client = NotebookClient(nb, timeout=1200, kernel_name="python3")
-            client.execute()
+        pm.execute_notebook(
+            input_path=input_path,
+            output_path=output_path,
+            kernel_name="python3",
+            log_output=True
+        )
 
-            output_path = abs_path.replace(".ipynb", "_executed.ipynb")
-            with open(output_path, "w", encoding="utf-8", errors="replace") as f:
-                nbformat.write(nb, f)
-
-            for i, cell in enumerate(nb.cells):
-                if cell.cell_type == "code":
-                    print("\n--- Cell", i, "---")
-                    for output in cell.get("outputs", []):
-                        if output.output_type == "stream":
-                            print(output.text)
-                        elif output.output_type == "execute_result":
-                            print(output["data"].get("text/plain", ""))
-                        elif output.output_type == "error":
-                            print("[ERROR]", output.ename + ":", output.evalue)
-
-            elapsed = time.time() - start_time
-            print("Notebook finished:", notebook_path, f"({elapsed:.2f} seconds)")
-
-        except CellExecutionError as e:
-            print("[ERROR] Execution failed in notebook:", notebook_path)
-            print(str(e))
-            raise
+        elapsed = time.time() - start_time
+        logf.write(f"Finished {notebook_path} in {elapsed:.2f} seconds\n")
+        print(f"Finished: {notebook_path} ({elapsed:.2f} seconds)")
 
 if __name__ == "__main__":
-    if "_executed" in os.getcwd():
-        print("[ERROR] Execution aborted: running from an '_executed' directory.")
-        sys.exit(1)
-
     pipeline = [
         "notebooks/pipeline/010_data_load_clean.ipynb",
         "notebooks/pipeline/020_visualization_clean_for_ml.ipynb",
@@ -103,5 +87,5 @@ if __name__ == "__main__":
         "notebooks/pipeline/080_inference.ipynb"
     ]
 
-    runner = NotebookPipelineRunner(notebook_paths=pipeline)
+    runner = PapermillPipelineRunner(notebook_paths=pipeline)
     runner.run_pipeline()
