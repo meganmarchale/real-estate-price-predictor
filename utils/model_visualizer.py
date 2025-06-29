@@ -1,9 +1,3 @@
-import os,sys
-# Add the project root to the Python path
-project_root = os.path.abspath("../..")
-sys.path.append(project_root)
-
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -13,13 +7,16 @@ from sklearn.feature_selection import VarianceThreshold
 from utils.constants import TEST_MODE  
 
 class ModelVisualizer:
+    
+
+   
     def __init__(self, model, X, y, model_name="Model"):
         self.model = model
         self.X = X
         self.y = y
         self.model_name = model_name
         self.y_pred = model.predict(X)
-        self.residuals = self.y - self.y_pred
+        self.residuals = self.y - self.y
 
 
     def plot_all_diagnostics(self):

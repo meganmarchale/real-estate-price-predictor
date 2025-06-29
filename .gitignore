@@ -71,7 +71,7 @@ docs-pdoc/
 
 # === Data files ===
 data/ml_ready/
-data/ML_old/
+data/ml_pre_study/
 
 # === Catboost info ===
 notebooks/pipelines/cateboost_info/
