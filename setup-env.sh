@@ -65,10 +65,13 @@ python -m pip install --upgrade pip
 
 # === Install dependencies ===
 print_blue "Installing dependencies from requirements.txt..."
-pip install -r requirements.txt
+#pip install -r requirements.txt
 # pip install -r requirements-dev.txt
-npm install -g pyright
-pip install --upgrade flake8 flake8-docstrings pydocstyle
+
+python.exe -m pip install -r requirements.txt
+
+#npm install -g pyright
+#pip install --upgrade flake8 flake8-docstrings pydocstyle
 
 # === Register venv in Jupyter ===
 python -m ipykernel install --user --name=venv --display-name "Python (.venv)"

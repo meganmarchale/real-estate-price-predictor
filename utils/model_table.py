@@ -15,6 +15,13 @@ class ModelComparativeTable:
         # Load all experiment evaluations from tracker
         self.df_all_evals = ExperimentTracker().get_all_experiment_df()
 
+        # === AJOUT DU PRINT DEBUG ICI ===
+        print("\n=== AVANT ENRICHISSEMENT ===")
+        print(self.df_all_evals[["model", "mae", "rmse", "r2"]].head(10))
+        print(self.df_all_evals.dtypes)
+        # ================================
+
+
         # Check if DataFrame is valid before enrichment
         if self.df_all_evals.empty or "r2" not in self.df_all_evals.columns:
             print("⚠️ No model evaluations found in experiment tracker.")
@@ -49,16 +56,14 @@ class ModelComparativeTable:
         df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
         df["r2"] = df["r2"].round(4)
 
-        # Format euros
-        df["mae"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        df["rmse"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
+        # Ajoute les colonnes d'affichage, ne modifie PAS les colonnes numériques originales
+        df["mae_display"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
+        df["rmse_display"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
 
-        # Ratio rmse / mae
-        def parse_euro(value):
-            return float(value.replace(" ", "").replace(" €", ""))
-
+        # Ratio rmse / mae, version calcul sur les floats uniquement
         df["rmse/mae"] = df.apply(
-            lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2),
+            lambda row: round(row["rmse"] / row["mae"], 2)
+            if pd.notnull(row["rmse"]) and pd.notnull(row["mae"]) and row["mae"] != 0 else None,
             axis=1
         )
 
@@ -72,26 +77,35 @@ class ModelComparativeTable:
 
 
 
+    def display_model_summary_from_db(db_path):
+        # Charger depuis la base SQLite
+        conn = sqlite3.connect(db_path)
+        df = pd.read_sql_query("SELECT * FROM model_evaluations", conn)
+        conn.close()
 
+        # DEBUG types
+        print("==== Colonnes et types ====")
+        print(df.dtypes)
+        print(df.head(5))
 
+        # Conversion sécurisée en float
+        for col in ["mae", "rmse", "r2"]:
+            df[col] = pd.to_numeric(df[col], errors="coerce")
 
+        # Calcul du ratio, robustement
+        df["rmse/mae"] = df.apply(
+            lambda row: round(row["rmse"] / row["mae"], 2)
+            if pd.notnull(row["rmse"]) and pd.notnull(row["mae"]) and row["mae"] != 0 else None,
+            axis=1
+        )
 
-    def display_model_summary_pre_study(self, csv_path):
-        """
-        Display and enhance the model evaluation summary from a CSV log file.
+        # Trouver le meilleur modèle (R² max)
+        best_idx = df["r2"].idxmax()
+        df["best"] = ""
+        if pd.notnull(best_idx):
+            df.loc[best_idx, "best"] = "✓"
 
-        Args:
-            csv_path (str): Path to the CSV file containing model metrics.
-        """
-        # Load and clean
-        summary_df = pd.read_csv(csv_path).drop_duplicates()
-
-        # Identify best model (highest R²)
-        best_idx = summary_df["r2"].idxmax()
-        summary_df["best"] = ""
-        summary_df.loc[best_idx, "best"] = "✓"
-
-        # Add model type
+        # Types de modèles (optionnel)
         def get_model_type(name):
             if "Linear" in name:
                 return "Linear"
@@ -103,40 +117,28 @@ class ModelComparativeTable:
                 return "Ensemble"
             else:
                 return "Other"
+        df["type"] = df["model"].apply(get_model_type)
+        df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
+        df["r2"] = df["r2"].round(4)
 
-        summary_df["type"] = summary_df["model"].apply(get_model_type)
+        # Formatage pour display (jamais dans le calcul !)
+        df["mae_display"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
+        df["rmse_display"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
 
-        # Add ranking by R²
-        summary_df["rank_r2"] = summary_df["r2"].rank(method="min", ascending=False).astype(int)
+        # Affichage simple dans le terminal (tu peux remplacer par display() si notebook)
+        print("=== Résumé modèles ===")
+        print(df[["model", "mae_display", "rmse_display", "r2", "rmse/mae", "best", "type"]])
 
-        # Format monetary values
-        summary_df["mae"] = summary_df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        summary_df["rmse"] = summary_df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " "))
-        summary_df["r2"] = summary_df["r2"].round(4)
+        # Retourne le DataFrame final si besoin
+        return df
 
-        # Add rmse/mae ratio
-        def parse_euro(value):
-            return float(value.replace(" ", "").replace(" €", ""))
 
-        summary_df["rmse/mae"] = summary_df.apply(lambda row: round(parse_euro(row["rmse"]) / parse_euro(row["mae"]), 2), axis=1)
 
-        # Optional: sort by R² if needed (but keep original index)
-        # summary_df = summary_df.sort_values(by="r2", ascending=False).reset_index(drop=True)
 
-        # Highlight top 3
-        def highlight_top_3(row):
-            if row["rank_r2"] == 1:
-                return ['background-color: lightgreen'] * len(row)
-            elif row["rank_r2"] == 2:
-                return ['background-color: #d0f0c0'] * len(row)
-            elif row["rank_r2"] == 3:
-                return ['background-color: #e6f5d0'] * len(row)
-            return [''] * len(row)
 
-        # Display
-        print("=== Model Evaluation Summary ===")
-        display(summary_df.style.apply(highlight_top_3, axis=1))
-        print(f"\n👉 Best model based on 'r2': {summary_df.loc[best_idx, 'model']} ✓")
+
+
+
 
 
       
@@ -149,7 +151,7 @@ class ModelComparativeTable:
 
         df = df.drop_duplicates().copy()
 
-        # Ensure float types before any calculation
+        # S’assurer que c’est bien en float
         for col in ["mae", "rmse", "r2"]:
             df[col] = pd.to_numeric(df[col], errors="coerce")
 
@@ -157,6 +159,7 @@ class ModelComparativeTable:
         df["best"] = ""
         df.loc[best_idx, "best"] = "✓"
 
+        # Ajout du type de modèle
         def get_model_type(name):
             if "Linear" in name:
                 return "Linear"
@@ -173,22 +176,23 @@ class ModelComparativeTable:
         df["rank_r2"] = df["r2"].rank(method="min", ascending=False).astype(int)
         df["r2"] = df["r2"].round(4)
 
-        # Compute ratio
+        # Calcul ratio
         df["rmse/mae"] = df.apply(
             lambda row: round(row["rmse"] / row["mae"], 2)
             if pd.notnull(row["rmse"]) and pd.notnull(row["mae"]) and row["mae"] != 0 else None,
             axis=1
         )
 
-        # Create formatted columns for display only
+        # Colonnes formatées pour l’affichage (pas pour les calculs)
         df["mae_display"] = df["mae"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
         df["rmse_display"] = df["rmse"].apply(lambda x: f"{x:,.2f} €".replace(",", " ") if pd.notnull(x) else "N/A")
 
-        # Replace values only for display
-        df["mae"] = df["mae_display"]
-        df["rmse"] = df["rmse_display"]
-        df.drop(columns=["mae_display", "rmse_display"], inplace=True)
+        # Colonnes à afficher
+        show_cols = [
+            "model", "type", "mae_display", "rmse_display", "r2", "rmse/mae", "rank_r2", "best"
+        ]
 
+        # Coloration conditionnelle
         def highlight_top_3(row):
             if row["rank_r2"] == 1:
                 return ['background-color: lightgreen'] * len(row)
@@ -199,9 +203,9 @@ class ModelComparativeTable:
             return [''] * len(row)
 
         print("=== Model Evaluation Summary ===")
-        styled = df.style.apply(highlight_top_3, axis=1)
-        display(HTML(styled.to_html()))
+        display(df[show_cols].style.apply(highlight_top_3, axis=1))
 
         best_model_name = df.loc[best_idx, "model"]
         print(f"\n👉 Best model based on R²: {best_model_name} ✓")
+
     

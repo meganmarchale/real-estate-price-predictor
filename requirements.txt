@@ -1,11 +1,10 @@
-# Data analysis and visualization
-pandas>=2.2.2
+numpy==1.26.4
+pandas==2.2.2
 matplotlib>=3.7.1
 seaborn>=0.12.2
 missingno==0.5.2
 ipython>=8.21.0
 
-# Machine learning and preprocessing
 scikit-learn==1.4.2
 joblib==1.4.2
 lightgbm==4.3.0
@@ -14,30 +13,24 @@ catboost==1.2.3
 optuna==3.6.1
 shap==0.45.1
 
-# API (optional)
 fastapi==0.111.0
 uvicorn==0.29.0
 
-# Experiment tracking
 mlflow==2.12.1
 
-# Utilities
 tqdm==4.66.4
 pyyaml==6.0.1
 openpyxl==3.1.2
 
-# Code formatting and static analysis
 black==24.4.2
 isort==5.13.2
 flake8==7.0.0
 mypy==1.10.0
 
-# Unit testing
 pytest==8.2.2
 pytest-mock==3.14.0
 pytest-cov==5.0.0
 
-# Environment and notebook support
 pip==24.0
 pip-tools==7.4.1
 ipykernel>=6.29.4
@@ -50,9 +43,7 @@ papermill==2.4.0
 ansiwrap==0.8.4
 rich==13.7.1
 
-# Azure
 azureml-core==1.55.0
-
 # azure-ai-ml==1.17.0
 # azure-identity==1.16.0
 # azureml-mlflow==1.55.0
