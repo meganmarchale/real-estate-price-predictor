@@ -86,7 +86,6 @@ class TrainTestMetricsLogger:
             "mae_test": [mae_test],
             "rmse_test": [rmse_test],
             "r2_test": [r2_test],
-            "mae_gap": [interp["mae_gap"]],
             "r2_gap": [r2_train - r2_test],
             "n_features": [n_features], 
             "data_file": [os.path.basename(data_file)],
@@ -137,8 +136,8 @@ class TrainTestMetricsLogger:
             raise ValueError("R-squared values should be between -infinity and 1.")
 
         # 2. Compute the relative MAE gap
-        #mae_gap = abs(mae_test - mae_train) / max(mae_train, 1e-6)
-        mae_gap = abs(mae_test - mae_train)
+        mae_gap = abs(mae_test - mae_train) / max(mae_train, 1e-6)
+        #mae_gap = abs(mae_test - mae_train)
 
         # 3. Define thresholds
         r2_drop_threshold = 0.15
@@ -160,7 +159,6 @@ class TrainTestMetricsLogger:
         if return_dict:
             return {
                 "status": status,
-                "mae_gap": mae_gap,
                 "r2_gap": r2_train - r2_test,  
                 "r2_train": r2_train,
                 "r2_test": r2_test,
@@ -266,36 +264,41 @@ class TrainTestMetricsLogger:
         return styler
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
     @staticmethod
     def format_metrics_k_euro(df):
-        # Columns to format in thousands of euros
+        # Format selected columns (MAE, RMSE) in thousands of euros
         cols_to_format = [
-            "mae_train", "rmse_train", "mae_test", "rmse_test", "mae_gap"
+            "mae_train", "rmse_train", "mae_test", "rmse_test"
         ]
         
         for col in cols_to_format:
             if col in df.columns:
-                df[col] = df[col].apply(lambda x: f"{x/1000:.1f} k€")
+                df[col] = df[col].apply(lambda x: TrainTestMetricsLogger.format_k_euro(x))
 
-        # Format n_features as integer (remove .0)
+
+        # Format n_features as integer
         if "n_features" in df.columns:
-            df["n_features"] = df["n_features"].apply(lambda x: int(x) if pd.notnull(x) else np.nan)
+            df["n_features"] = df["n_features"].apply(
+                lambda x: int(float(x)) if pd.notnull(x) else np.nan
+            )
 
         return df
 
+    @staticmethod
+    def format_k_euro(x):
+        try:
+            value = float(str(x).replace("k€", "").strip())
+            return f"{value / 1000:.1f} k€"
+        except Exception:
+            return x  # return as is if conversion fails
+
+    @staticmethod
+    def format_decimal(x, precision=4):
+        try:
+            value = float(x)
+            return f"{value:.{precision}f}"
+        except Exception:
+            return x  # return as is if conversion fails
 
 
     @staticmethod
