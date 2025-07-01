@@ -58,7 +58,8 @@ class TrainTestMetricsLogger:
         mae_test, rmse_test, r2_test,
         data_file=None,
         test_mode=TEST_MODE,
-        dir_choice="ml_ready"
+        dir_choice="ml_ready",
+        n_features=None  
     ):
         # If data_file not provided, get latest from the right dir (default: ml_ready)
         if data_file is None:
@@ -86,12 +87,15 @@ class TrainTestMetricsLogger:
             "rmse_test": [rmse_test],
             "r2_test": [r2_test],
             "mae_gap": [interp["mae_gap"]],
+            "r2_gap": [r2_train - r2_test],
+            "n_features": [n_features], 
             "data_file": [os.path.basename(data_file)],
             "data_file_timestamp": [file_timestamp],
             "test_mode": [test_mode],
             "interpretation": [interp["status"]],
-            "ranking_score": [ranking_score]  # This value must be computed before this dictionary
+            "ranking_score": [ranking_score]
         }
+
         df = pd.DataFrame(data)
         if os.path.exists(self.log_file):
             df_existing = pd.read_csv(self.log_file)
@@ -133,7 +137,8 @@ class TrainTestMetricsLogger:
             raise ValueError("R-squared values should be between -infinity and 1.")
 
         # 2. Compute the relative MAE gap
-        mae_gap = abs(mae_test - mae_train) / max(mae_train, 1e-6)
+        #mae_gap = abs(mae_test - mae_train) / max(mae_train, 1e-6)
+        mae_gap = abs(mae_test - mae_train)
 
         # 3. Define thresholds
         r2_drop_threshold = 0.15
@@ -156,6 +161,7 @@ class TrainTestMetricsLogger:
             return {
                 "status": status,
                 "mae_gap": mae_gap,
+                "r2_gap": r2_train - r2_test,  
                 "r2_train": r2_train,
                 "r2_test": r2_test,
                 "mae_train": mae_train,
@@ -274,16 +280,8 @@ class TrainTestMetricsLogger:
 
 
     @staticmethod
-    def run_ranking(mae_test, rmse_test, r2_test, weight_r2=2.0, weight_mae=1.0, weight_rmse=1.0):
-        """
-        Returns a numeric score for ranking runs.
-        Higher is better. By default, prioritizes r2_test, penalizes high mae/rmse.
-        """
-        return (weight_r2 * r2_test) - (weight_mae * mae_test) - (weight_rmse * rmse_test)
-    
-
-    def format_metrics_k_euro(self, df):
-        # Colonnes numériques à formatter
+    def format_metrics_k_euro(df):
+        # Columns to format in thousands of euros
         cols_to_format = [
             "mae_train", "rmse_train", "mae_test", "rmse_test", "mae_gap"
         ]
@@ -291,4 +289,19 @@ class TrainTestMetricsLogger:
         for col in cols_to_format:
             if col in df.columns:
                 df[col] = df[col].apply(lambda x: f"{x/1000:.1f} k€")
+
+        # Format n_features as integer (remove .0)
+        if "n_features" in df.columns:
+            df["n_features"] = df["n_features"].apply(lambda x: int(x) if pd.notnull(x) else np.nan)
+
         return df
+
+
+
+    @staticmethod
+    def run_ranking(mae_test, rmse_test, r2_test, weight_r2=2.0, weight_mae=1.0, weight_rmse=1.0):
+        """
+        Returns a numeric score for ranking runs.
+        Higher is better. By default, prioritizes r2_test, penalizes high mae/rmse.
+        """
+        return (weight_r2 * r2_test) - (weight_mae * mae_test) - (weight_rmse * rmse_test)
