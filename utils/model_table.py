@@ -134,13 +134,6 @@ class ModelComparativeTable:
 
 
 
-
-
-
-
-
-
-
       
     def display_model_summary(self):
         df = self.df_all_evals.copy()

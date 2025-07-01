@@ -202,3 +202,7 @@ pd.read_sql("SELECT * FROM model_metrics", conn)
 
 
 # 3. Model training
+
+
+![picture 0](images/a2b25867ed7b3e42fc0ceacc68656e03fd009a21e5ee5e8add10e78a494023b3.png)  
+![picture 1](images/a2b25867ed7b3e42fc0ceacc68656e03fd009a21e5ee5e8add10e78a494023b3.png)  
