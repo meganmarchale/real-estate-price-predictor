@@ -72,6 +72,7 @@ class TrainTestMetricsLogger:
             file_timestamp = datetime.fromtimestamp(os.path.getmtime(data_file)).strftime("%Y-%m-%d %H:%M:%S")
 
         interp = self.interpret_fit(mae_train, mae_test, r2_train, r2_test, return_dict=True)
+        r2_gap_diagnostic = interp["r2_gap_diagnostic"]
 
         # Calculate the ranking score based on test metrics
         ranking_score = self.run_ranking(mae_test, rmse_test, r2_test)
@@ -87,11 +88,12 @@ class TrainTestMetricsLogger:
             "rmse_test": [rmse_test],
             "r2_test": [r2_test],
             "r2_gap": [r2_train - r2_test],
+            "r2_gap_diagnostic": [r2_gap_diagnostic],
             "n_features": [n_features], 
             "data_file": [os.path.basename(data_file)],
             "data_file_timestamp": [file_timestamp],
             "test_mode": [test_mode],
-            "interpretation": [interp["status"]],
+            "interpretation (r2,mae_gap)": [interp["status"]],
             "ranking_score": [ranking_score]
         }
 
@@ -137,21 +139,37 @@ class TrainTestMetricsLogger:
 
         # 2. Compute the relative MAE gap
         mae_gap = abs(mae_test - mae_train) / max(mae_train, 1e-6)
-        #mae_gap = abs(mae_test - mae_train)
 
-        # 3. Define thresholds
+        # 3. Compute the R² gap
+        r2_gap = r2_train - r2_test
+
+        # 4. Define thresholds
         r2_drop_threshold = 0.15
         mae_overfit_threshold = mae_threshold
         mae_underfit_threshold = mae_threshold * 1.5
 
-        # 4. Interpretation logic
-        if (r2_train >= r2_good and r2_test < (r2_train - r2_drop_threshold)) or \
-        (mae_gap > mae_overfit_threshold and mae_test > mae_train):
+
+
+        # 5. R² gap diagnostic
+        if r2_gap < 0:
+            r2_gap_diagnostic = "Possible underfitting"
+        elif r2_gap < 0.05:
+            r2_gap_diagnostic = "Excellent generalization"
+        elif r2_gap < 0.08:
+            r2_gap_diagnostic = "Good generalization"
+        elif r2_gap < 0.12:
+            r2_gap_diagnostic = "Moderate overfitting"
+        else:
+            r2_gap_diagnostic = "Strong overfitting"
+
+        # 6. Global interpretation (aligned with R² diagnostic)
+        r2_min_reasonable = 0.60  # Acceptable generalization baseline
+
+        if r2_gap > 0.15 or (mae_gap > mae_threshold and mae_test > mae_train):
             status = "overfitting"
-        elif (r2_train < r2_poor and r2_test < r2_poor) or \
-            (mae_test > mae_train and mae_gap < mae_underfit_threshold and mae_test > mae_threshold):
+        elif r2_gap < -0.05 and r2_test < r2_min_reasonable:
             status = "underfitting"
-        elif (r2_train >= r2_good and r2_test >= r2_good) and (mae_gap <= mae_threshold):
+        elif r2_test >= r2_min_reasonable and mae_gap <= mae_threshold:
             status = "good generalization"
         else:
             status = "unstable"
@@ -159,7 +177,8 @@ class TrainTestMetricsLogger:
         if return_dict:
             return {
                 "status": status,
-                "r2_gap": r2_train - r2_test,  
+                "r2_gap": r2_gap,
+                "r2_gap_diagnostic": r2_gap_diagnostic,
                 "r2_train": r2_train,
                 "r2_test": r2_test,
                 "mae_train": mae_train,
@@ -167,6 +186,8 @@ class TrainTestMetricsLogger:
             }
         else:
             return status
+
+
 
 
     def display_table(self, n_rows=None, sort_by_ranking=True):
@@ -253,13 +274,28 @@ class TrainTestMetricsLogger:
 
         # Then apply interpretation cell coloring (to overwrite rank colors if overlapping)
         #styler = styler.applymap(highlight_interpretation, subset=['interpretation'])
-        styler = styler.map(highlight_interpretation, subset=['interpretation'])
+        styler = styler.map(highlight_interpretation, subset=['interpretation (r2,mae_gap)'])
 
         # Apply header coloring styles
         styler = styler.set_table_styles(custom_header_styles)
 
         # Hide the dataframe index column (0,1,2,...) in the output
         styler = styler.hide(axis='index')
+
+        diagnostic_colors = {
+            "Excellent generalization": "background-color: #81c784; color: black",
+            "Good generalization": "background-color: #aed581; color: black",
+            "Moderate overfitting": "background-color: #ffcc80; color: black",
+            "Strong overfitting": "background-color: #ef9a9a; color: black",
+            "Possible underfitting": "background-color: #90caf9; color: black"
+        }
+
+        # Appliquer la couleur à la colonne r2_gap_diagnostic
+        def highlight_r2_gap_diagnostic(val):
+            return diagnostic_colors.get(val, "")
+
+        if "r2_gap_diagnostic" in df_disp.columns:
+            styler = styler.map(highlight_r2_gap_diagnostic, subset=['r2_gap_diagnostic'])
 
         return styler
 
